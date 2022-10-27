@@ -26,6 +26,9 @@ public class JobRequest implements Job{
         this.numberOfStringsWanted = numberOfStringsWanted;
     }
 
+    public JobRequest() {
+    }
+
     public int minimumStringLength() {
         return minimumStringLength;
     }

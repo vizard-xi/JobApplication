@@ -1,5 +1,7 @@
 package com.example.application.config;
 
+import com.example.application.Utils.Queue.JobQueuePublisher;
+import com.example.application.Utils.Queue.JobQueueReceiver;
 import com.example.application.controller.JobRestController;
 import com.example.application.generator.JobGenerator;
 import com.example.application.repository.JobRepository;
@@ -11,11 +13,17 @@ import org.springframework.context.annotation.Import;
 import javax.annotation.Resource;
 
 @Configuration
-@Import({JobRepositoryConfig.class})
+@Import({JobRepositoryConfig.class, JobQueueConfig.class})
 public class JobConfig {
 
     @Resource
     private JobRepository jobRepository;
+
+    @Resource
+    private JobQueuePublisher jobQueuePublisher;
+
+    @Resource
+    private JobQueueReceiver jobQueueReceiver;
 
     @Bean
     public JobGenerator jobGenerator() {
@@ -24,7 +32,13 @@ public class JobConfig {
     }
 
     @Bean
-    public JobRestController jobRestController() {
-        return new JobRestController(new JobService(jobGenerator(), jobRepository));
+    public JobService jobService() {
+        return new JobService(jobGenerator(), jobRepository, jobQueueReceiver);
     }
+
+    @Bean
+    public JobRestController jobRestController() {
+        return new JobRestController(jobService(), jobQueuePublisher);
+    }
+
 }

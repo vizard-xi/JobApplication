@@ -1,5 +1,6 @@
 package com.example.application.service;
 
+import com.example.application.Utils.Queue.JobQueueReceiver;
 import com.example.application.generator.JobGenerator;
 import com.example.application.model.JobRequest;
 import com.example.application.model.JobRow;
@@ -22,15 +23,20 @@ public class JobService {
 
     private final JobGenerator jobGenerator;
 
-    public JobService(JobGenerator jobGenerator, JobRepository jobRepository) {
+    private final JobQueueReceiver jobQueueReceiver;
+
+    public JobService(JobGenerator jobGenerator, JobRepository jobRepository, JobQueueReceiver jobQueueReceiver) {
         this.jobRepository = jobRepository;
         this.jobGenerator = jobGenerator;
+        this.jobQueueReceiver = jobQueueReceiver;
     }
 
-    public String createAndProcessedNewJob(JobRequest jobRequest) throws FileNotFoundException {
+    public String createAndProcessedNewJob() {
 
-        JobRow jobRow = new JobRow(JobState.CREATED.jobState(), jobRequest.minimumStringLength(),
-                jobRequest.maximumStringLength(), jobRequest.providedCharacterValues(), jobRequest.numberOfStringsWanted());
+        JobRequest jobRequestFromQueue = jobQueueReceiver.getJobRequestFromQueue();
+
+        JobRow jobRow = new JobRow(JobState.CREATED.jobState(), jobRequestFromQueue.minimumStringLength(),
+                jobRequestFromQueue.maximumStringLength(), jobRequestFromQueue.providedCharacterValues(), jobRequestFromQueue.numberOfStringsWanted());
         JobRow createdJob = jobRepository.save(jobRow);
         Optional <JobRow> retrievedJob = jobRepository.findById(createdJob.Id());
         if (retrievedJob.isPresent()) {
@@ -38,7 +44,7 @@ public class JobService {
             return "Job Created and Processed Successfully \n" + "Job {" +
                     "Job Id = " + retrievedJob.get().Id() +
                     ", Job State = '" + retrievedJob.get().jobState() +
-                    '}';
+                    '}' + '\n';
         }
         else {
             createdJob.setJobState(JobState.STOPPED.jobState());
@@ -46,7 +52,7 @@ public class JobService {
             return "Job with ID: " + createdJob.Id() + " created but could not be processed";
         }
     }
-    private void processJob(JobRow job) throws FileNotFoundException {
+    private void processJob(JobRow job) {
 
         job.setJobState(JobState.PROCESSING.jobState());
         jobRepository.save(job);
@@ -57,7 +63,7 @@ public class JobService {
 
         for (int characterIndex = 0; characterIndex != start; characterIndex ++) {
 
-            java.lang.String elements = alphabet.substring((start - 1), minimumCombinationValues);
+            String elements = alphabet.substring((start - 1), minimumCombinationValues);
             jobGenerator.generatePossibleCharacterCombination(elements);
             System.out.println();
 
@@ -93,10 +99,12 @@ public class JobService {
         return (providedCharactersLength) * numberOfPossibleCharacterCombination(providedCharactersLength-1);
     }
 
-    private String writeAndStoreProcessedJobResultsToAFile(String generatedCharacters) throws FileNotFoundException {
+    private String writeAndStoreProcessedJobResultsToAFile(String generatedCharacters) {
         String fileName = Timestamp.from(Instant.now()) + ".txt";
         try (PrintWriter printWriter = new PrintWriter(fileName)) {
             printWriter.println(generatedCharacters);
+        } catch (Exception exception) {
+            exception.printStackTrace();
         }
         return fileName;
     }
